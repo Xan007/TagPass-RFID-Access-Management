@@ -8,15 +8,34 @@
     {% block extra_head %}{% endblock %}
   </head>
   <body>
-    <nav class="navbar">
-      <div class="navbar__brand">TagPass</div>
+    <header class="site-header">
+      <div class="site-header__top">
+        <div class="site-header__brand">
+          <span class="site-header__badge">TP</span>
+          <div>
+            <div class="site-header__title">TagPass</div>
+            <p class="site-header__subtitle">Control inteligente de accesos RFID</p>
+          </div>
+        </div>
+        {% if session.get('user') %}
+        <nav class="site-header__nav">
+          <a class="site-header__link" href="{{ url_for('dashboard') }}">Accesos</a>
+          <a class="site-header__link" href="{{ url_for('blocked_cards') }}">Bloqueados</a>
+          <a class="site-header__link" href="{{ url_for('spaces') }}">Espacios</a>
+        </nav>
+        <div class="site-header__right">
+          <span class="site-header__user">{{ session['user']['email'] }}</span>
+          <a class="site-header__button" href="{{ url_for('logout') }}">Cerrar sesión</a>
+        </div>
+        {% endif %}
+      </div>
       {% if session.get('user') %}
-      <div class="navbar__actions">
-        <span class="navbar__user">{{ session['user']['email'] }}</span>
-        <a class="navbar__logout" href="{{ url_for('logout') }}">Cerrar sesión</a>
+      <div class="site-header__cta">
+        <a class="site-header__cta-btn" href="{{ url_for('blocked_cards') }}">Ver bloqueados</a>
+        <a class="site-header__cta-btn" href="{{ url_for('spaces') }}">Gestionar espacios</a>
       </div>
       {% endif %}
-    </nav>
+    </header>
 
     <main class="container">
       {% with messages = get_flashed_messages(with_categories=true) %}

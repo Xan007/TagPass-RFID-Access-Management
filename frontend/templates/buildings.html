@@ -1,0 +1,164 @@
+{% extends "layout.html" %}
+{% block title %}Gestión de Edificios · TagPass{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h1>Gestión de Edificios</h1>
+    <p>Administra y organiza los edificios del campus.</p>
+  </header>
+
+  <!-- SECTION: AGREGAR EDIFICIO -->
+  <section class="dashboard__section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h2 style="margin: 0;">Edificios</h2>
+      <button class="btn btn--primary" onclick="openAddModal()">+ Nuevo Edificio</button>
+    </div>
+
+    {% if buildings %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+      {% for building in buildings %}
+      <div style="background: white; border-radius: 12px; border: 2px solid #e2e8f0; padding: 1.5rem; transition: all 0.3s ease; cursor: pointer;" onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.2)';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+          <h3 style="margin: 0; color: #1a202c; font-size: 1.15rem;">{{ building.name }}</h3>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn--info btn--small" type="button" onclick="editBuilding(this)" data-id="{{ building.id }}" data-name="{{ building.name|e }}">Editar</button>
+            <button class="btn btn--danger btn--small" type="button" onclick="deleteBuilding(this, '{{ building.name|e }}')" data-id="{{ building.id }}">Eliminar</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 3rem; color: #718096;">
+      <p style="font-size: 1rem; margin-bottom: 1rem;">No hay edificios disponibles</p>
+      <button class="btn btn--primary" onclick="openAddModal()">Crear Primer Edificio</button>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- MODAL PARA AGREGAR EDIFICIO -->
+  <div id="add-modal" class="modal">
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3>Nuevo Edificio</h3>
+        <button class="modal__close" onclick="closeAddModal()">&times;</button>
+      </div>
+      <form method="post" action="{{ url_for('add_building') }}" class="form">
+        <div class="form__group">
+          <label class="form__label" for="add-name">Nombre del Edificio</label>
+          <input class="form__input" id="add-name" name="name" type="text" placeholder="Ej: Edificio Principal" required>
+        </div>
+        <input name="next" type="hidden" value="{{ request.full_path }}">
+        <div class="modal__footer">
+          <button class="btn btn--secondary" type="button" onclick="closeAddModal()">Cancelar</button>
+          <button class="btn btn--primary" type="submit">Crear Edificio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDICIÓN -->
+  <div id="edit-modal" class="modal">
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3>Editar Edificio</h3>
+        <button class="modal__close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <form method="post" id="edit-form" class="form">
+        <div class="form__group">
+          <label class="form__label" for="edit-name">Nombre del Edificio</label>
+          <input class="form__input" id="edit-name" name="name" type="text" required>
+        </div>
+        <input name="next" type="hidden" value="{{ request.full_path }}">
+        <div class="modal__footer">
+          <button class="btn btn--secondary" type="button" onclick="closeEditModal()">Cancelar</button>
+          <button class="btn btn--primary" type="submit">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE ELIMINACIÓN -->
+  <div id="delete-modal" class="modal">
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3>Eliminar Edificio</h3>
+        <button class="modal__close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div style="margin-bottom: 1.5rem; line-height: 1.8;">
+        <p>¿Eliminar el edificio <strong id="delete-name"></strong>?</p>
+        <p style="color: #c53030; font-weight: 600; font-size: 0.9rem; margin-top: 1rem;">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" onclick="closeDeleteModal()">Cancelar</button>
+        <button class="btn btn--danger" type="button" onclick="confirmDelete()">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  let currentDeleteId = null;
+
+  function openAddModal() {
+    document.getElementById('add-modal').classList.add('active');
+    document.getElementById('add-name').focus();
+  }
+
+  function closeAddModal() {
+    document.getElementById('add-modal').classList.remove('active');
+    document.getElementById('add-name').value = '';
+  }
+
+  function editBuilding(button) {
+    const buildingId = button.dataset.id;
+    const buildingName = button.dataset.name;
+    document.getElementById('edit-name').value = buildingName;
+    document.getElementById('edit-form').action = '{{ url_for("edit_building", building_id="BUILDING_ID") }}'.replace('BUILDING_ID', buildingId);
+    document.getElementById('edit-modal').classList.add('active');
+    document.getElementById('edit-name').focus();
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').classList.remove('active');
+  }
+
+  function deleteBuilding(button, name) {
+    currentDeleteId = button.dataset.id;
+    document.getElementById('delete-name').textContent = name;
+    document.getElementById('delete-modal').classList.add('active');
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('delete-modal').classList.remove('active');
+    currentDeleteId = null;
+  }
+
+  function confirmDelete() {
+    if (!currentDeleteId || String(currentDeleteId).toLowerCase() === 'null' || String(currentDeleteId).toLowerCase() === 'undefined') {
+      alert('ID de edificio inválido. No se puede eliminar.');
+      return;
+    }
+    closeDeleteModal();
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("delete_building", building_id="BUILDING_ID") }}'.replace('BUILDING_ID', encodeURIComponent(currentDeleteId));
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'next';
+    input.value = '{{ request.full_path }}';
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeAddModal();
+      closeEditModal();
+      closeDeleteModal();
+    }
+  });
+</script>
+{% endblock %}

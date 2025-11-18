@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% block title %}Tarjetas Bloqueadas · TagPass{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h1>Tarjetas Bloqueadas</h1>
+    <p>Gestiona las tarjetas RFID bloqueadas en el sistema.</p>
+  </header>
+
+  <section class="stat-cards">
+    <article class="stat-card">
+      <h2 class="stat-card__title">Total bloqueadas</h2>
+      <p class="stat-card__value">{{ total_blocked }}</p>
+    </article>
+  </section>
+
+  <section class="dashboard__table">
+    <h2>Listado de Bloqueos</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Tarjeta UID</th>
+            <th>Estudiante</th>
+            <th>Salón</th>
+            <th>Edificio</th>
+            <th>Razón</th>
+            <th>Fecha de Bloqueo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if blocked_cards %}
+            {% for block in blocked_cards %}
+            <tr>
+              <td data-title="Tarjeta UID">{{ block.card_uid or "N/D" }}</td>
+              <td data-title="Estudiante">
+                {{ block.rfid_card.person_name or block.rfid_card.student_code or "Desconocido" if block.get('rfid_card') else "N/D" }}
+              </td>
+              <td data-title="Salón">{{ block.room.name or "Sin dato" if block.get('room') else "N/D" }}</td>
+              <td data-title="Edificio">{{ block.building.name or "Sin dato" if block.get('building') else "N/D" }}</td>
+              <td data-title="Razón">{{ block.reason or "—" }}</td>
+              <td data-title="Fecha">{{ block.created_at[:10] if block.get('created_at') else "N/D" }}</td>
+              <td data-title="Acciones">
+                <form
+                  class="table-action"
+                  method="post"
+                  action="{{ url_for('unblock_card', block_id=block.id) }}"
+                  style="display: inline;"
+                >
+                  <input name="next" type="hidden" value="{{ request.full_path }}">
+                  <button class="btn btn--success" type="submit" onclick="return confirm('¿Desbloquear esta tarjeta?')">Desbloquear</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td class="table__empty" colspan="7">No hay tarjetas bloqueadas.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}

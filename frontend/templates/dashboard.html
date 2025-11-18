@@ -4,135 +4,165 @@
 {% block content %}
 <section class="dashboard">
   <header class="dashboard__header">
-    <h1>Panel de control</h1>
-    <p>Consulta la actividad reciente del sistema RFID conectada a la Raspberry Pi.</p>
+    <h1>Panel de Control</h1>
+    <p>Monitorea los eventos de acceso RFID del sistema.</p>
   </header>
 
   {% if logs_error %}
   <div class="banner banner--error">
-    Ocurrió un problema al cargar los registros: {{ logs_error }}
+    Advertencia: Error al cargar registros: {{ logs_error }}
   </div>
   {% endif %}
 
+  <!-- ESTADÍSTICAS -->
+  <section class="stat-cards">
+    <article class="stat-card">
+      <h2 class="stat-card__title">Total de Eventos</h2>
+      <p class="stat-card__value">{{ logs|length }}</p>
+    </article>
+    <article class="stat-card">
+      <h2 class="stat-card__title">Acceso Autorizado</h2>
+      <p class="stat-card__value" style="color: #48bb78;">
+        {{ logs|selectattr("_is_authorized", "equalto", true)|list|length }}
+      </p>
+    </article>
+    <article class="stat-card">
+      <h2 class="stat-card__title">Acceso Denegado</h2>
+      <p class="stat-card__value" style="color: #f56565;">
+        {{ logs|selectattr("_is_authorized", "equalto", false)|list|length }}
+      </p>
+    </article>
+  </section>
+
+  <!-- QUICK ACTIONS -->
+  <section class="quick-actions">
+    <a href="{{ url_for('blocked_cards') }}" class="quick-action-btn">
+      <span class="quick-action-btn__label">Ver Bloqueados</span>
+    </a>
+    <a href="{{ url_for('spaces') }}" class="quick-action-btn">
+      <span class="quick-action-btn__label">Gestionar Espacios</span>
+    </a>
+    <button class="quick-action-btn" onclick="openBlockModal()">
+      <span class="quick-action-btn__label">Bloquear Tarjeta</span>
+    </button>
+  </section>
+
+  <!-- FILTROS SIMPLIFICADOS -->
   <section class="dashboard__filters">
-    <form class="filters" method="get">
+    <h2>Filtrar Accesos</h2>
+    <form class="filters" method="get" id="filters-form">
       <div class="filters__row">
         <div class="filters__field">
+          <label for="search-type">Tipo de Búsqueda</label>
+          <select id="search-type" name="search_type" onchange="updateSearchInput()">
+            <option value="all" {% if filters.search_type == 'all' or not filters.search_type %}selected{% endif %}>Todos</option>
+            <option value="name" {% if filters.search_type == 'name' %}selected{% endif %}>Por Nombre</option>
+            <option value="code" {% if filters.search_type == 'code' %}selected{% endif %}>Por Código</option>
+            <option value="uid" {% if filters.search_type == 'uid' %}selected{% endif %}>Por UID</option>
+          </select>
+        </div>
+
+        <div class="filters__field">
           <label for="student">Estudiante</label>
-          <select id="student" name="student">
+          <input 
+            id="student" 
+            name="student" 
+            type="text"
+            placeholder="Buscar..."
+            value="{{ filters.student }}"
+            list="students-list"
+          >
+          <datalist id="students-list">
+            {% for student in filter_options.get(filter_options.current_list, []) %}
+            <option value="{{ student }}">
+            {% endfor %}
+          </datalist>
+        </div>
+
+        <div class="filters__field">
+          <label for="building">Edificio</label>
+          <select id="building" name="building" onchange="updateRoomsByBuilding()">
             <option value="">Todos</option>
-            {% if filters.student and filters.student not in filter_options.students %}
-            <option value="{{ filters.student }}" selected>{{ filters.student }}</option>
-            {% endif %}
-            {% for option in filter_options.students %}
-            <option value="{{ option }}" {% if option == filters.student %}selected{% endif %}>{{ option }}</option>
+            {% for building in filter_options.buildings %}
+            <option value="{{ building }}" {% if building == filters.building %}selected{% endif %}>{{ building }}</option>
             {% endfor %}
           </select>
         </div>
+
         <div class="filters__field">
           <label for="room">Salón</label>
           <select id="room" name="room">
             <option value="">Todos</option>
-            {% if filters.room and filters.room not in filter_options.rooms %}
-            <option value="{{ filters.room }}" selected>{{ filters.room }}</option>
+            {% if filters.building and filters.building in filter_options.rooms_by_building %}
+              {% for room in filter_options.rooms_by_building[filters.building] %}
+              <option value="{{ room }}" {% if room == filters.room %}selected{% endif %}>{{ room }}</option>
+              {% endfor %}
+            {% else %}
+              {% for room in filter_options.get('rooms', []) %}
+              <option value="{{ room }}" {% if room == filters.room %}selected{% endif %}>{{ room }}</option>
+              {% endfor %}
             {% endif %}
-            {% for option in filter_options.rooms %}
-            <option value="{{ option }}" {% if option == filters.room %}selected{% endif %}>{{ option }}</option>
-            {% endfor %}
           </select>
         </div>
-        <div class="filters__field">
-          <label for="building">Edificio</label>
-          <select id="building" name="building">
-            <option value="">Todos</option>
-            {% if filters.building and filters.building not in filter_options.buildings %}
-            <option value="{{ filters.building }}" selected>{{ filters.building }}</option>
-            {% endif %}
-            {% for option in filter_options.buildings %}
-            <option value="{{ option }}" {% if option == filters.building %}selected{% endif %}>{{ option }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="filters__row">
+
         <div class="filters__field">
           <label for="start_date">Desde</label>
           <input id="start_date" name="start_date" type="date" value="{{ filters.start_date }}">
         </div>
+
         <div class="filters__field">
           <label for="end_date">Hasta</label>
           <input id="end_date" name="end_date" type="date" value="{{ filters.end_date }}">
         </div>
-        <div class="filters__field">
-          <label for="limit">Límite</label>
-          <input id="limit" name="limit" type="number" min="1" max="500" value="{{ filters.limit }}" placeholder="50">
-        </div>
-        <div class="filters__actions">
-          <button class="btn btn--primary" type="submit">Aplicar filtros</button>
-          <a class="btn btn--secondary" href="{{ url_for('dashboard') }}">Limpiar</a>
-        </div>
+      </div>
+
+      <div class="filters__actions">
+        <button class="btn btn--primary" type="submit">Aplicar Filtros</button>
+        <a class="btn btn--secondary" href="{{ url_for('dashboard') }}">Limpiar</a>
       </div>
     </form>
   </section>
 
-  <section class="dashboard__cards">
-    <article class="stat-card">
-      <h2 class="stat-card__title">Sesión activa</h2>
-      <p class="stat-card__value">{{ user.email }}</p>
-    </article>
-    <article class="stat-card">
-      <h2 class="stat-card__title">Eventos registrados</h2>
-      <p class="stat-card__value">{{ logs|length }}</p>
-    </article>
-  </section>
-
+  <!-- TABLA DE ACCESOS -->
   <section class="dashboard__table">
-    <h2>Últimos accesos</h2>
+    <h2>Últimos Accesos</h2>
     <div class="table-wrapper">
       <table>
         <thead>
           <tr>
-            <th>UID</th>
             <th>Estudiante</th>
             <th>Salón</th>
-            <th>Edificio</th>
-            <th>Acciones</th>
+            <th>Estado</th>
+            <th>Hora</th>
           </tr>
         </thead>
         <tbody>
           {% if logs %}
             {% for log in logs %}
             <tr>
-              <td data-title="UID">{{ log.uid or "N/D" }}</td>
-              <td data-title="Estudiante">{{ log._student_label or "Desconocido" }}</td>
-              <td data-title="Salón">{{ log._room_label or "Sin dato" }}</td>
-              <td data-title="Edificio">{{ log._building_label or "Sin dato" }}</td>
-              <td data-title="Acciones">
-                <form
-                  class="table-action"
-                  method="post"
-                  action="{{ url_for('block_access') }}"
-                  data-student="{{ (log._student_label or '')|e }}"
-                  data-room="{{ (log._room_label or '')|e }}"
-                >
-                  <input name="uid" type="hidden" value="{{ log.uid or '' }}">
-                  <input name="student" type="hidden" value="{{ log._student_label or '' }}">
-                  <input name="room" type="hidden" value="{{ log._room_value or '' }}">
-                  <input name="building" type="hidden" value="{{ log._building_value or '' }}">
-                  <input name="reason" type="hidden" value="">
-                  <input name="next" type="hidden" value="{{ request.full_path }}">
-                  {% if log._is_blocked %}
-                  <button class="btn btn--disabled" type="button" disabled>Bloqueado</button>
-                  {% else %}
-                  <button class="btn btn--danger block-btn" type="button">Bloquear</button>
-                  {% endif %}
-                </form>
+              <td data-title="Estudiante">
+                <strong>{{ log._student_label or "Desconocido" }}</strong>
+                <br>
+                <small style="color: #718096;">{{ log._student_code or log.card_uid or "N/D" }}</small>
+              </td>
+              <td data-title="Salón">
+                {{ log._room_label or "—" }} {% if log._building_label %}<br><small>{{ log._building_label }}</small>{% endif %}
+              </td>
+              <td data-title="Estado">
+                {% if log._is_authorized %}
+                  <span class="badge badge--success">Autorizado</span>
+                {% else %}
+                  <span class="badge badge--danger">Denegado</span>
+                {% endif %}
+              </td>
+              <td data-title="Hora">
+                <small>{{ log._timestamp[:16]|replace('T', ' ') if log._timestamp else "N/D" }}</small>
               </td>
             </tr>
             {% endfor %}
           {% else %}
             <tr>
-              <td class="table__empty" colspan="5">No hay registros disponibles todavía.</td>
+              <td class="table__empty" colspan="4">No hay registros con los filtros seleccionados.</td>
             </tr>
           {% endif %}
         </tbody>
@@ -140,8 +170,131 @@
     </div>
   </section>
 </section>
-{% endblock %}
 
-{% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<!-- MODAL DE BLOQUEO -->
+<div id="block-modal" class="modal">
+  <div class="modal__content">
+    <div class="modal__header">
+      <h3>Bloquear Acceso a Tarjeta</h3>
+      <button class="modal__close" onclick="closeBlockModal()">&times;</button>
+    </div>
+    <form method="post" action="{{ url_for('block_access') }}" class="form" id="block-form" onsubmit="handleBlockSubmit(event)">
+      <div class="form__group">
+        <label class="form__label" for="block-student">Seleccionar Estudiante</label>
+        <input class="form__input" id="block-student" name="student_search" type="text" placeholder="Buscar estudiante..." autocomplete="off" required>
+        <input name="card_uid" type="hidden" id="block-card-uid">
+      </div>
+      
+      <div class="form__group">
+        <label class="form__label" for="block-room">Salón</label>
+        <select class="form__input" name="room_id" id="block-room" required>
+          <option value="">— Seleccionar Salón —</option>
+          {% for building_name, rooms in filter_options.rooms_by_building.items() %}
+            <optgroup label="{{ building_name }}">
+              {% for room in rooms %}
+              <option value="{{ room }}">{{ room }}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form__group">
+        <label class="form__label" for="block-reason">Motivo del Bloqueo</label>
+        <textarea class="form__input" id="block-reason" name="reason" placeholder="Describe el motivo..." style="min-height: 100px; resize: vertical;"></textarea>
+      </div>
+
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" onclick="closeBlockModal()">Cancelar</button>
+        <button class="btn btn--danger" type="submit">Bloquear Tarjeta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIRMACIÓN -->
+<div id="confirm-modal" class="modal">
+  <div class="modal__content">
+    <div class="modal__header">
+      <h3>Confirmar Bloqueo</h3>
+      <button class="modal__close" onclick="closeConfirmModal()">&times;</button>
+    </div>
+    <div style="margin-bottom: 1.5rem; line-height: 1.6;">
+      <p>Estudiante: <strong id="confirm-student"></strong></p>
+      <p>Salón: <strong id="confirm-room"></strong></p>
+      <p>Motivo: <strong id="confirm-reason"></strong></p>
+      <p style="color: #c53030; font-weight: 600; margin-top: 1rem;">Esta acción no se puede deshacer.</p>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn--secondary" type="button" onclick="closeConfirmModal()">Cancelar</button>
+      <button class="btn btn--danger" type="button" onclick="confirmBlock()">Confirmar Bloqueo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openBlockModal() {
+    document.getElementById('block-modal').classList.add('active');
+  }
+
+  function closeBlockModal() {
+    document.getElementById('block-modal').classList.remove('active');
+    document.getElementById('block-form').reset();
+  }
+
+  function closeConfirmModal() {
+    document.getElementById('confirm-modal').classList.remove('active');
+  }
+
+  function updateSearchInput() {
+    const searchType = document.getElementById('search-type').value;
+    fetch(`{{ url_for('get_search_options', search_type='TYPE') }}`.replace('TYPE', searchType))
+      .then(r => r.json())
+      .then(data => updateDatalist(data))
+      .catch(err => console.error(err));
+  }
+
+  function updateDatalist(data) {
+    const datalist = document.getElementById('students-list');
+    datalist.innerHTML = '';
+    const options = data.options || [];
+    options.forEach(opt => {
+      const option = document.createElement('option');
+      option.value = opt;
+      datalist.appendChild(option);
+    });
+  }
+
+  function updateRoomsByBuilding() {
+    const buildingSelect = document.getElementById('building');
+    const roomSelect = document.getElementById('room');
+    roomSelect.innerHTML = '<option value="">Todos</option>';
+  }
+
+  function handleBlockSubmit(event) {
+    event.preventDefault();
+    const student = document.getElementById('block-student').value;
+    const room = document.getElementById('block-room').value;
+    const reason = document.getElementById('block-reason').value;
+
+    document.getElementById('confirm-student').textContent = student;
+    document.getElementById('confirm-room').textContent = room;
+    document.getElementById('confirm-reason').textContent = reason || 'No especificado';
+
+    closeBlockModal();
+    document.getElementById('confirm-modal').classList.add('active');
+  }
+
+  function confirmBlock() {
+    document.getElementById('block-form').submit();
+  }
+
+  // Abrir modal con tecla Escape
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeBlockModal();
+      closeConfirmModal();
+    }
+  });
+</script>
 {% endblock %}

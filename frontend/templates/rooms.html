@@ -1,0 +1,213 @@
+{% extends "layout.html" %}
+{% block title %}Gestión de Salones · TagPass{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h1>Gestión de Salones</h1>
+    <p>Administra y organiza los salones por edificio.</p>
+  </header>
+
+  <!-- SECTION: AGREGAR SALÓN -->
+  <section class="dashboard__section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h2 style="margin: 0;">Salones</h2>
+      <button class="btn btn--primary" onclick="openAddModal()">+ Nuevo Salón</button>
+    </div>
+
+    {% if rooms_by_building %}
+      {% for building_name, rooms in rooms_by_building.items() %}
+      <div style="margin-bottom: 2.5rem;">
+        <h3 style="color: #1a202c; font-size: 1.1rem; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid #667eea;">
+          {{ building_name }}
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+          {% for room in rooms %}
+          <div style="background: white; border-radius: 12px; border: 2px solid #e2e8f0; padding: 1.5rem; transition: all 0.3s ease;" onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.2)';" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+              <div>
+                <h4 style="margin: 0 0 0.5rem 0; color: #1a202c; font-size: 1.1rem;">{{ room.name }}</h4>
+                <span class="badge badge--info">{{ room.type }}</span>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn--info btn--small" type="button" onclick="editRoom(this)" data-id="{{ room.id }}" data-name="{{ room.name|e }}" data-building="{{ room.building_id }}" data-type="{{ room.type }}">Editar</button>
+                <button class="btn btn--danger btn--small" type="button" onclick="deleteRoom(this, '{{ room.name|e }}')" data-id="{{ room.id }}">Eliminar</button>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div style="text-align: center; padding: 3rem; color: #718096;">
+      <p style="font-size: 1rem; margin-bottom: 1rem;">No hay salones disponibles</p>
+      <button class="btn btn--primary" onclick="openAddModal()">Crear Primer Salón</button>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- MODAL PARA AGREGAR SALÓN -->
+  <div id="add-modal" class="modal">
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3>Nuevo Salón</h3>
+        <button class="modal__close" onclick="closeAddModal()">&times;</button>
+      </div>
+      <form method="post" action="{{ url_for('add_room') }}" class="form">
+        <div class="form__group">
+          <label class="form__label" for="add-name">Nombre del Salón</label>
+          <input class="form__input" id="add-name" name="name" type="text" placeholder="Ej: Aula 101" required>
+        </div>
+        <div class="form__group">
+          <label class="form__label" for="add-building">Edificio</label>
+          <select class="form__input" id="add-building" name="building_id" required>
+            <option value="">— Seleccionar —</option>
+            {% for building in buildings %}
+            <option value="{{ building.id }}">{{ building.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form__group">
+          <label class="form__label" for="add-type">Tipo</label>
+          <select class="form__input" id="add-type" name="type" required>
+            <option value="">— Seleccionar —</option>
+            <option value="AULA">Aula</option>
+            <option value="LABORATORIO">Laboratorio</option>
+          </select>
+        </div>
+        <input name="next" type="hidden" value="{{ request.full_path }}">
+        <div class="modal__footer">
+          <button class="btn btn--secondary" type="button" onclick="closeAddModal()">Cancelar</button>
+          <button class="btn btn--primary" type="submit">Crear Salón</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDICIÓN -->
+  <div id="edit-modal" class="modal">
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3>Editar Salón</h3>
+        <button class="modal__close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <form method="post" id="edit-form" class="form">
+        <div class="form__group">
+          <label class="form__label" for="edit-name">Nombre del Salón</label>
+          <input class="form__input" id="edit-name" name="name" type="text" required>
+        </div>
+        <div class="form__group">
+          <label class="form__label" for="edit-building">Edificio</label>
+          <select class="form__input" id="edit-building" name="building_id" required>
+            {% for building in buildings %}
+            <option value="{{ building.id }}">{{ building.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form__group">
+          <label class="form__label" for="edit-type">Tipo</label>
+          <select class="form__input" id="edit-type" name="type" required>
+            <option value="AULA">Aula</option>
+            <option value="LABORATORIO">Laboratorio</option>
+          </select>
+        </div>
+        <input name="next" type="hidden" value="{{ request.full_path }}">
+        <div class="modal__footer">
+          <button class="btn btn--secondary" type="button" onclick="closeEditModal()">Cancelar</button>
+          <button class="btn btn--primary" type="submit">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE ELIMINACIÓN -->
+  <div id="delete-modal" class="modal">
+    <div class="modal__content">
+      <div class="modal__header">
+        <h3>Eliminar Salón</h3>
+        <button class="modal__close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div style="margin-bottom: 1.5rem; line-height: 1.8;">
+        <p>¿Eliminar el salón <strong id="delete-name"></strong>?</p>
+        <p style="color: #c53030; font-weight: 600; font-size: 0.9rem; margin-top: 1rem;">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--secondary" type="button" onclick="closeDeleteModal()">Cancelar</button>
+        <button class="btn btn--danger" type="button" onclick="confirmDelete()">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  let currentDeleteId = null;
+
+  function openAddModal() {
+    document.getElementById('add-modal').classList.add('active');
+    document.getElementById('add-name').focus();
+  }
+
+  function closeAddModal() {
+    document.getElementById('add-modal').classList.remove('active');
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-building').value = '';
+    document.getElementById('add-type').value = '';
+  }
+
+  function editRoom(button) {
+    const roomId = button.dataset.id;
+    const roomName = button.dataset.name;
+    const buildingId = button.dataset.building;
+    const roomType = button.dataset.type;
+    
+    document.getElementById('edit-name').value = roomName;
+    document.getElementById('edit-building').value = buildingId;
+    document.getElementById('edit-type').value = roomType;
+    document.getElementById('edit-form').action = '{{ url_for("edit_room", room_id="ROOM_ID") }}'.replace('ROOM_ID', roomId);
+    document.getElementById('edit-modal').classList.add('active');
+    document.getElementById('edit-name').focus();
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').classList.remove('active');
+  }
+
+  function deleteRoom(button, name) {
+    currentDeleteId = button.dataset.id;
+    document.getElementById('delete-name').textContent = name;
+    document.getElementById('delete-modal').classList.add('active');
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('delete-modal').classList.remove('active');
+    currentDeleteId = null;
+  }
+
+  function confirmDelete() {
+    if (!currentDeleteId || String(currentDeleteId).toLowerCase() === 'null' || String(currentDeleteId).toLowerCase() === 'undefined') {
+      alert('ID de salón inválido. No se puede eliminar.');
+      return;
+    }
+    closeDeleteModal();
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("delete_room", room_id="ROOM_ID") }}'.replace('ROOM_ID', encodeURIComponent(currentDeleteId));
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'next';
+    input.value = '{{ request.full_path }}';
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeAddModal();
+      closeEditModal();
+      closeDeleteModal();
+    }
+  });
+</script>
+{% endblock %}
