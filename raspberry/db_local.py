@@ -168,6 +168,35 @@ def get_counts(db_path):
     conn.close()
     return {"unsynced": unsynced, "blocked": blocked, "total_events": total_events}
 
+def mark_event_as_invalid(db_path, event_id: int):
+    """Marca un evento como sincronizado (eliminado lógicamente) para no reintentar.
+    Se usa cuando la tarjeta no existe en rfid_cards."""
+    conn = _connect(db_path)
+    conn.execute("UPDATE local_events SET synced = 1 WHERE id = ?", (event_id,))
+    conn.commit()
+    conn.close()
+    print(f"[DB] Evento {event_id} marcado como sincronizado (inválido)")
+
+def get_valid_unsynced_events(db_path, valid_card_uids: set) -> List[Tuple[int, str, str, int]]:
+    """Obtiene solo eventos con card_uid válido. Automáticamente limpia inválidos."""
+    conn = _connect(db_path)
+    rows = conn.execute(
+        "SELECT id, card_uid, timestamp, authorized FROM local_events WHERE synced = 0"
+    ).fetchall()
+    conn.close()
+    
+    valid_rows = []
+    for row in rows:
+        event_id, card_uid, timestamp, authorized = row
+        if card_uid in valid_card_uids:
+            valid_rows.append(tuple(row))
+        else:
+            # Limpiar evento inválido automáticamente
+            mark_event_as_invalid(db_path, event_id)
+            print(f"[DB] Evento {event_id} eliminado: card_uid '{card_uid}' no existe en rfid_cards")
+    
+    return valid_rows
+
 def update_blocked_cards(db_path, blocked_cards):
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()

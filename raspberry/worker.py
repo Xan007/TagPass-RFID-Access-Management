@@ -1,7 +1,7 @@
 import threading
 import time
 from supabase import create_client, Client
-from db_local import get_unsynced_events, mark_as_synced, upsert_blocked_card, remove_blocked_card
+from db_local import get_valid_unsynced_events, mark_as_synced, upsert_blocked_card, remove_blocked_card
 from runtime_state import set_device, get_device_id, get_room_id
 from config import (
     SUPABASE_URL,
@@ -81,8 +81,25 @@ def seed_blocked_from_cloud():
         print(f"[WORKER] Error al sincronizar bloqueos: {e}")
 
 
+def _get_valid_card_uids():
+    """Obtiene la lista de card_uid válidos de Supabase (rfid_cards)."""
+    try:
+        res = supabase.table("rfid_cards").select("uid").execute()
+        data = getattr(res, "data", []) or []
+        valid_uids = {row.get("uid") for row in data if row.get("uid")}
+        print(f"[WORKER] Validadas {len(valid_uids)} tarjetas en rfid_cards")
+        return valid_uids
+    except Exception as e:
+        print(f"[WORKER] Error obteniendo tarjetas válidas: {e}")
+        return set()
+
+
 def sync_with_supabase():
-    events = get_unsynced_events(LOCAL_DB)
+    # Obtener tarjetas válidas de Supabase para filtrar eventos
+    valid_card_uids = _get_valid_card_uids()
+    
+    # Obtener eventos válidos (se eliminan automáticamente los inválidos)
+    events = get_valid_unsynced_events(LOCAL_DB, valid_card_uids)
     if not events:
         print("[WORKER] No hay eventos pendientes.")
         return True
