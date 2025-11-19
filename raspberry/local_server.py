@@ -45,6 +45,12 @@ def _queue_worker():
             print(
                 f"[LOCAL SERVER] Guardado evento local: {card_uid} | authorized={authorized}"
             )
+            # 🔥 Despertar inmediatamente al worker para sincronizar
+            try:
+                from worker import realtime_event
+                realtime_event.set()
+            except ImportError:
+                pass
         except Exception as e:
             print(f"[LOCAL SERVER] Error guardando evento {item}: {e}")
         finally:

@@ -22,6 +22,10 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # 🔥 Evento que usaremos para "reiniciar" el bucle principal
 realtime_event = threading.Event()
 
+# 💾 Cache de tarjetas válidas con timestamp para evitar consultas constantes
+_valid_cards_cache = {"uids": set(), "timestamp": 0}
+_cache_ttl_seconds = 30  # Refrescar cada 30 segundos
+
 
 def _auth_login_forever():
     """Mantiene una sesión iniciada con email/password si están configurados.
@@ -82,16 +86,28 @@ def seed_blocked_from_cloud():
 
 
 def _get_valid_card_uids():
-    """Obtiene la lista de card_uid válidos de Supabase (rfid_cards)."""
+    """Obtiene la lista de card_uid válidos de Supabase (rfid_cards) con cache."""
+    current_time = time.time()
+    
+    # Si el cache es válido, devolver el cache
+    if (current_time - _valid_cards_cache["timestamp"]) < _cache_ttl_seconds:
+        return _valid_cards_cache["uids"]
+    
     try:
         res = supabase.table("rfid_cards").select("uid").execute()
         data = getattr(res, "data", []) or []
         valid_uids = {row.get("uid") for row in data if row.get("uid")}
-        print(f"[WORKER] Validadas {len(valid_uids)} tarjetas en rfid_cards")
+        
+        # Actualizar cache
+        _valid_cards_cache["uids"] = valid_uids
+        _valid_cards_cache["timestamp"] = current_time
+        
+        print(f"[WORKER] Cache actualizado: {len(valid_uids)} tarjetas válidas")
         return valid_uids
     except Exception as e:
-        print(f"[WORKER] Error obteniendo tarjetas válidas: {e}")
-        return set()
+        print(f"[WORKER] Error obteniendo tarjetas válidas, usando cache anterior: {e}")
+        # Si hay error, devolver el cache anterior aunque esté expirado
+        return _valid_cards_cache["uids"]
 
 
 def sync_with_supabase():
@@ -302,12 +318,17 @@ def run_worker():
                 backoff = min(backoff * 2, BACKOFF_MAX)
 
             # 💤 Esperar el próximo ciclo o un cambio Realtime
-            print(f"[WORKER] Esperando {SYNC_INTERVAL}s o evento realtime...")
-            realtime_event.wait(timeout=SYNC_INTERVAL)
+            # Si hay eventos pendientes, usar timeout corto (0.5s) para sincronizar rápidamente
+            from db_local import get_unsynced_events
+            pending = len(get_unsynced_events(LOCAL_DB)) > 0
+            timeout = 0.5 if pending else SYNC_INTERVAL
+            
+            print(f"[WORKER] Esperando {timeout}s (eventos pendientes: {pending})...")
+            realtime_event.wait(timeout=timeout)
 
             # Si el evento fue activado, lo limpiamos para la siguiente espera
             if realtime_event.is_set():
-                print("[WORKER] 🔄 Reiniciando bucle por cambio Realtime.")
+                print("[WORKER] 🔄 Sincronización inmediata por nuevo evento.")
                 realtime_event.clear()
 
         except Exception as e:

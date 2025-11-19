@@ -12,8 +12,8 @@ LOCAL_DB = os.getenv("LOCAL_DB", "local_data.db")
 DEVICE_NAME = os.getenv("DEVICE_NAME", "")  # por defecto usaremos el hostname
 DEVICE_LOCATION = os.getenv("DEVICE_LOCATION", "")
 
-# Segundos entre sincronizaciones con la nube
-SYNC_INTERVAL = int(os.getenv("SYNC_INTERVAL", "60"))
+# Segundos entre sincronizaciones con la nube (optimizado para sincronización casi instantánea)
+SYNC_INTERVAL = int(os.getenv("SYNC_INTERVAL", "2"))
 
 # Backoff para reintentos del worker (en segundos)
 BACKOFF_MIN = int(os.getenv("BACKOFF_MIN", "5"))
