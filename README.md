@@ -52,22 +52,50 @@ The architecture follows a hybrid cloud-local model: Supabase PostgreSQL serves 
 ```bash
 cd frontend
 pip install -r requirements.txt
-export SUPABASE_URL="https://your-project.supabase.co"
-export SUPABASE_KEY="your-anon-public-key"
-export SUPABASE_PASSWORD="your-service-role-password"
+
+# Create .env file (copy from frontend/.env.example if available)
+cat > .env << EOF
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=sb_publishable_your-anon-public-key
+FLASK_SECRET_KEY=change-this-to-a-random-secret-key
+DEBUG=false
+PORT=5000
+EOF
+
 flask run
 ```
 
 Access at `http://localhost:5000`
+
+**Configuration Notes**:
+- `SUPABASE_KEY`: Use the **Publishable/Anon key** from Supabase Dashboard → API keys
+- Never use Service Role key in frontend (security risk)
+- `FLASK_SECRET_KEY`: Generate a strong random key for session encryption
 
 ### Raspberry Pi Installation
 
 ```bash
 cd raspberry
 pip install -r requirements.txt
-cp config.py.example config.py
-# Edit config.py with your Supabase credentials
+
+# Create .env file from template
+cp .env.example .env
+
+# Edit .env with your configuration
+nano .env
+# Required fields:
+#   - SUPABASE_URL
+#   - SUPABASE_ANON_KEY
+#   - SUPABASE_EMAIL (device service account)
+#   - SUPABASE_PASSWORD (device service account password)
+#   - LOCAL_DB (path to SQLite database)
+
 python main.py
 ```
 
 The local server runs on port 5001 and the RFID reader/worker threads start automatically.
+
+**Important**: 
+- Create a dedicated user account in Supabase Auth for each device
+- Store `.env` securely; add to `.gitignore`
+- Device validates credentials on startup
