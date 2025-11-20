@@ -1,11 +1,21 @@
 import os
+from dotenv import load_dotenv
 
-# Permite sobreescribir con variables de entorno en la Raspberry
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://bapldjpazhvdczjvsljd.supabase.co")
-# Publishable (anon) key, NUNCA service role en el cliente
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "sb_publishable_ARegOtkhHmq4TwmycVwbfA_1Awmu_tt")
+# Cargar variables de entorno desde .env
+load_dotenv()
 
-LOCAL_DB = os.getenv("LOCAL_DB", "local_data.db")
+# Supabase Cloud Configuration
+# Obtén estos valores del Supabase Dashboard
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+if not SUPABASE_URL:
+    raise ValueError("SUPABASE_URL no está configurado en .env")
+
+# Publishable (anon) key - NUNCA uses service role key en el cliente
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+if not SUPABASE_KEY:
+    raise ValueError("SUPABASE_ANON_KEY no está configurado en .env")
+
+LOCAL_DB = os.getenv("LOCAL_DB", "/var/local/tagpass.db")
 
 # Ya no configuramos ROOM_ID/DEVICE_ID manualmente. Se descubren desde la BD.
 # Puedes opcionalmente dar un nombre y ubicación para registrar o encontrar este dispositivo.
@@ -19,9 +29,16 @@ SYNC_INTERVAL = int(os.getenv("SYNC_INTERVAL", "2"))
 BACKOFF_MIN = int(os.getenv("BACKOFF_MIN", "5"))
 BACKOFF_MAX = int(os.getenv("BACKOFF_MAX", "300"))
 
-# Credenciales del usuario con el que inicia sesión la Raspberry (rol authenticated)
-SUPABASE_EMAIL = os.getenv("SUPABASE_EMAIL", "raspberry1@tagpass.com")
-SUPABASE_PASSWORD = os.getenv("SUPABASE_PASSWORD", "123456789")
+# Credenciales del usuario de servicio para este dispositivo
+# IMPORTANTE: Crea un usuario específico en Supabase Auth para cada Raspberry
+# No uses credenciales compartidas. Este usuario debe tener permisos limitados.
+SUPABASE_EMAIL = os.getenv("SUPABASE_EMAIL")
+if not SUPABASE_EMAIL:
+    raise ValueError("SUPABASE_EMAIL no está configurado en .env")
+
+SUPABASE_PASSWORD = os.getenv("SUPABASE_PASSWORD")
+if not SUPABASE_PASSWORD:
+    raise ValueError("SUPABASE_PASSWORD no está configurado en .env")
 
 # Cada cuánto renovamos la sesión (segundos).
 # Si está vacío email/password, el worker continuará como ANON sin autenticación.
